@@ -22,10 +22,8 @@
 	邮箱：qwgg9654@gmail.com
 		  568629794@qq.com
 	GitHub：hxl9654
-	功能描述：STC8单片机串口1字符串通信模块
+	功能描述：STC8单片机EEPROM操作模块
 	备注：尽量使用封装好的函数进行操作，而不要使用直接对串口进行操作。
-        使用该模块，请在config.h中定义UART_BUFF_MAX常量为数据缓存数组最大长度。
-            如 #define UART1_BUFF_MAX 64
         使用该模块，请在config.h中定义XTAL常量为晶振频率（单位：兆赫兹）。
             如 #define XTAL 11.059200
 *////////////////////////////////////////////////////////////////////////////////////////
@@ -48,22 +46,23 @@
 *////////////////////////////////////////////////////////////////////////////////////
 void EEPROM_ConfigWaitTime()
 {
-	if(XTAL >= 30)
-		IAP_CONTER = 0x00;
-	else if(XTAL >= 24)
-		IAP_CONTER = 0x01;
-	else if(XTAL >= 20)
-		IAP_CONTER = 0x02;
-	else if(XTAL >= 12)
-		IAP_CONTER = 0x03;
-	else if(XTAL >= 6)
-		IAP_CONTER = 0x04;
-	else if(XTAL >= 3)
-		IAP_CONTER = 0x05;
-	else if(XTAL >= 2)
-		IAP_CONTER = 0x06;
+	unsigned char xtal = XTAL;
+	if(xtal >= 30)
+		IAP_CONTR = 0x80;
+	else if(xtal >= 24)
+		IAP_CONTR = 0x81;
+	else if(xtal >= 20)
+		IAP_CONTR = 0x82;
+	else if(xtal >= 12)
+		IAP_CONTR = 0x83;
+	else if(xtal >= 6)
+		IAP_CONTR = 0x84;
+	else if(xtal >= 3)
+		IAP_CONTR = 0x85;
+	else if(xtal >= 2)
+		IAP_CONTR = 0x86;
 	else
-		IAP_CONTER = 0x07;
+		IAP_CONTR = 0x87;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：EEPROM_ReadByte
@@ -72,20 +71,27 @@ void EEPROM_ConfigWaitTime()
 *   addr
 *       参数类型：unsigned int型数据
 *       参数描述：要读取的数据的地址
-*返回值：unsigned char型数据，读取到的数据
+*返回值：unsigned int型数据，读取到的数据(读出的数据为后8位，读取出错时，返回0x2333
 *版本：1.0
 *作者：何相龙
 *日期：2016年11月1日
 *////////////////////////////////////////////////////////////////////////////////////
-unsigned char EEPROM_ReadByte(unsigned int addr) 
+unsigned int EEPROM_ReadByte(unsigned int addr) 
 {
+	unsigned char dat = 0x00;
 	EEPROM_ConfigWaitTime();
 	IAP_CMD = 0x01;				//EEPROM读命令
 	IAP_ADDRL = addr & 0xFF;
 	IAP_ADDRH = addr >> 8;
 	IAP_TRIG = 0x5A;			//触发指令
 	IAP_TRIG = 0xA5;
-	return IAP_DATA;
+	dat = IAP_DATA;
+	if(IAP_CONTR & 0x10)
+	{
+		IAP_CONTR &= 0xEF;
+		return 0x2333;
+	}
+	else return dat;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：EEPROM_WriteByte
@@ -95,7 +101,7 @@ unsigned char EEPROM_ReadByte(unsigned int addr)
 *       参数类型：unsigned int型数据
 *       参数描述：要写入的数据的地址
 *   dat
-*       参数类型：unsigned int型数据
+*       参数类型：unsigned char型数据
 *       参数描述：要写入的数据
 *返回值：unsigned char型数据，是否成功（成功：0；失败：1）
 *版本：1.0
@@ -105,13 +111,108 @@ unsigned char EEPROM_ReadByte(unsigned int addr)
 unsigned char EEPROM_WriteByte(unsigned int addr, unsigned char dat) 
 {
 	EEPROM_ConfigWaitTime();
-	IAP_CMD = 0x02;				//EEPROM读命令
+	IAP_CMD = 0x02;				//EEPROM写命令
 	IAP_ADDRL = addr & 0xFF;
 	IAP_ADDRH = addr >> 8;
 	IAP_DATA = dat;
+	EA = 0;
 	IAP_TRIG = 0x5A;			//触发指令
 	IAP_TRIG = 0xA5;
-	if(IAP_CMD & 0x10)
+	EA = 1;
+	if(IAP_CONTR & 0x10)
+	{
+		IAP_CONTR &= 0xEF;
 		return 1;
+	}
 	else return 0;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：EEPROM_EreasePage
+*函数功能：擦除STC8单片机EEPROM中一页的数据
+*参数列表：
+*   addr
+*       参数类型：unsigned int型数据
+*       参数描述：要擦除的数据的地址（注意！！！系统擦除的是该地址所在的一页！！！并不是此地址后512个字节！！！）
+*返回值：unsigned char型数据，是否成功（成功：0；失败：1）
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月1日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned char EEPROM_EreasePage(unsigned int addr) 
+{
+	EEPROM_ConfigWaitTime();
+	IAP_CMD = 0x03;				//EEPROM写命令
+	IAP_ADDRL = addr & 0xFF;
+	IAP_ADDRH = addr >> 8;
+	EA = 0;
+	IAP_TRIG = 0x5A;			//触发指令
+	IAP_TRIG = 0xA5;
+	EA = 1;
+	if(IAP_CONTR & 0x10)
+	{
+		IAP_CONTR &= 0xEF;
+		return 1;
+	}
+	else return 0;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：EEPROM_ReadBytes
+*函数功能：从STC8单片机EEPROM读出一段数据
+*参数列表：
+*   addr
+*       参数类型：unsigned int型数据
+*       参数描述：要写入的数据的地址
+*   *to
+*       参数类型：unsigned char型指针
+*       参数描述：存储读取出数据的位置
+*   len
+*       参数类型：unsigned int型数据
+*       参数描述：要读取的数据的长度
+*返回值：unsigned char型数据，是否成功（成功：0；失败：1）
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月1日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned char EEPROM_ReadBytes(unsigned char addr, unsigned char *to, unsigned int len)
+{
+	unsigned int pointer;
+	unsigned int temp;
+	for(pointer = addr; pointer < addr + len; pointer++)
+	{
+		temp = EEPROM_ReadByte(pointer);
+		if(temp <= 0xFF)
+			to[pointer - addr] = temp;
+		else return 1;
+	}
+	return 0;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：EEPROM_WriteBytes
+*函数功能：向STC8单片机EEPROM写入一段数据
+*参数列表：
+*   addr
+*       参数类型：unsigned int型数据
+*       参数描述：将写入的数据存储的地址
+*   *dat
+*       参数类型：unsigned char型指针
+*       参数描述：要写入的数据的首地址
+*   len
+*       参数类型：unsigned int型数据
+*       参数描述：要写入的字符串的长度
+*返回值：unsigned char型数据，是否成功（成功：0；失败：1）
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月1日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned char EEPROM_WriteBytes(unsigned char addr, unsigned char *dat, unsigned int len)
+{
+	unsigned int pointer;
+	unsigned int temp;
+	for(pointer = addr; pointer < addr + len; pointer++)
+	{
+		temp = EEPROM_WriteByte(pointer, dat[pointer - addr]);
+		if(temp == 1)
+			return 1;
+	}
+	return 0;
 }

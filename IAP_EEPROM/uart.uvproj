@@ -333,7 +333,7 @@
             <DataOverlaying>1</DataOverlaying>
             <OverlayString></OverlayString>
             <MiscControls></MiscControls>
-            <DisableWarningNumbers></DisableWarningNumbers>
+            <DisableWarningNumbers>16</DisableWarningNumbers>
             <LinkerCmdFile></LinkerCmdFile>
             <Assign></Assign>
             <ReserveString></ReserveString>
@@ -341,8 +341,8 @@
             <UserClasses></UserClasses>
             <CSection></CSection>
             <UserSection></UserSection>
-            <CodeBaseAddress></CodeBaseAddress>
-            <XDataBaseAddress></XDataBaseAddress>
+            <CodeBaseAddress>0X0000-0XFFF8</CodeBaseAddress>
+            <XDataBaseAddress>0X0000-0X1FFF</XDataBaseAddress>
             <PDataBaseAddress></PDataBaseAddress>
             <BitBaseAddress></BitBaseAddress>
             <DataBaseAddress></DataBaseAddress>
@@ -367,14 +367,14 @@
               <FilePath>.\STARTUP.A51</FilePath>
             </File>
             <File>
-              <FileName>STC8_UART1.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\STC8_UART1.c</FilePath>
-            </File>
-            <File>
               <FileName>test.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\test.c</FilePath>
+            </File>
+            <File>
+              <FileName>STC8_EEPROM.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\STC8_EEPROM.c</FilePath>
             </File>
           </Files>
         </Group>

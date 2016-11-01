@@ -22,26 +22,62 @@
 	邮箱：qwgg9654@gmail.com
 		  568629794@qq.com
 	GitHub：hxl9654
-	功能描述：STC8单片机串口1字符串通信模块测试程序
+	功能描述：STC8单片机EEPROM操作模块测试程序
+	注意：使用此测试程序时，请将用户EEPROM设置到10K以上
 *////////////////////////////////////////////////////////////////////////////////////////
 #include<STC8.h>
-#include<STC8_UART1.h>
+#include<STC8_EEPROM.h>
+#include<../UART/UART1/STC8_UART1.h>
+#include<../UART/UART1/STC8_UART1.c>
 void Timer0Init(void);
-int main()
+xdata unsigned char temp1[512] = {0};
+xdata unsigned char temp2[512] = {0};
+
+void EEPROMTest_SingleByte()
 {
-	UART1_Conf(460800, 1);
-	//UART1_Conf(9600, 2);
-	UART1_IOPortSwitch(0);
+	unsigned int i = 0;	
+	EEPROM_EreasePage(0x1000);	
+	for(i = 0; i < 512; i++)
+		EEPROM_WriteByte(0x1000 + i, i);	
+	
+	for(i = 0; i < 512; i++)
+		temp1[i] = EEPROM_ReadByte(0x1000 + i);	
+	UART1_SendString(temp1, 512);
+	
+	EEPROM_EreasePage(0x1000);
+	for(i = 0; i < 512; i++)
+		temp1[i] = EEPROM_ReadByte(0x1000 + i);	
+	UART1_SendString(temp1, 512);
+}
+void EEPROMTest_Bytes()
+{
+	unsigned int i;
+	for(i = 0; i < 512; i++)
+		temp1[i] = i + 233;
+	EEPROM_WriteBytes(0x0010, temp1, 300);
+	EEPROM_ReadBytes(0x0010, temp2, 300);
+	UART1_SendString(temp2, 300);
+	EEPROM_EreasePage(0x0010);
+}
+void main()
+{	
+	UART1_Conf(9600, 1);
 	Timer0Init();
+	
+	EEPROMTest_SingleByte();
+	EEPROMTest_Bytes();
+	
 	while(1)
 	{
 		UART1_Driver();
 	}
 }
-void UART1_Action(unsigned char *dat,unsigned char len)
+void UART1_Action(unsigned char *dat,unsigned int len)
 {
-	UART1_SendString("\r\nResived:",10);
-	UART1_SendString(dat, len);
+	EEPROM_WriteBytes(0x2000, dat, len);
+	EEPROM_ReadBytes(0x2000, temp1, len);
+	UART1_SendString(temp1, len);
+	EEPROM_EreasePage(0x2000);
 }
 void Timer0Init(void)		//1毫秒@11.0592MHz
 {

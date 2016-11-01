@@ -171,12 +171,12 @@
       <GroupNumber>1</GroupNumber>
       <FileNumber>2</FileNumber>
       <FileType>1</FileType>
-      <tvExp>0</tvExp>
+      <tvExp>1</tvExp>
       <Focus>0</Focus>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>.\STC8_UART1.c</PathWithFileName>
-      <FilenameWithoutPath>STC8_UART1.c</FilenameWithoutPath>
+      <PathWithFileName>.\test.c</PathWithFileName>
+      <FilenameWithoutPath>test.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
@@ -184,12 +184,12 @@
       <GroupNumber>1</GroupNumber>
       <FileNumber>3</FileNumber>
       <FileType>1</FileType>
-      <tvExp>0</tvExp>
+      <tvExp>1</tvExp>
       <Focus>0</Focus>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>.\test.c</PathWithFileName>
-      <FilenameWithoutPath>test.c</FilenameWithoutPath>
+      <PathWithFileName>.\STC8_EEPROM.c</PathWithFileName>
+      <FilenameWithoutPath>STC8_EEPROM.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
