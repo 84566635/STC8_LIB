@@ -372,9 +372,9 @@
               <FilePath>.\test.c</FilePath>
             </File>
             <File>
-              <FileName>STC8_UART2.c</FileName>
+              <FileName>STC8_UART3.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\STC8_UART2.c</FilePath>
+              <FilePath>.\STC8_UART3.c</FilePath>
             </File>
           </Files>
         </Group>
