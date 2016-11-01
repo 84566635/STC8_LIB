@@ -24,15 +24,21 @@
 	GitHub：hxl9654
 	功能描述：STC8单片机串口1字符串通信模块
 	备注：尽量使用封装好的函数进行操作，而不要使用直接对串口进行操作。
-        使用该模块，请在config.h中定义UART_BUFF_MAX常量为数据缓存数组最大长度。
-            如 #define UART1_BUFF_MAX 64
+        使用该模块，请在config.h中定UART1_RESIVE_BUFF_MAX常量为数据接收缓存数组最大长度。
+            如 #define UART1_RESIVE_BUFF_MAX 64
+		使用该模块，请在config.h中定UART1_SEND_BUFF_MAX常量为数据发送缓存数组最大长度。
+            如 #define UART1_SEND_BUFF_MAX 64
         使用该模块，请在config.h中定义XTAL常量为晶振频率（单位：兆赫兹）。
             如 #define XTAL 11.059200
 *////////////////////////////////////////////////////////////////////////////////////////
 #include<STC8.h>
 
-#ifndef UART1_BUFF_MAX
-#define UART1_BUFF_MAX 64
+#ifndef UART1_RESIVE_BUFF_MAX
+#define UART1_RESIVE_BUFF_MAX 64
+#endif // 如果没有定义BUFFMAX，则默认为64
+
+#ifndef UART1_SEND_BUFF_MAX
+#define UART1_SEND_BUFF_MAX 64
 #endif // 如果没有定义BUFFMAX，则默认为64
 
 #ifndef XTAL
@@ -42,14 +48,91 @@
 extern void UART1_Action(unsigned char *dat, unsigned int len);
 //此函数须另行编写：当串口完成一个字符串结束后会自动调用
 
-unsigned char xdata UART1_Buff[UART1_BUFF_MAX];     //串口1接收缓冲区
-unsigned int UART1_BuffIndex = 0;            //串口1接收缓冲区当前位置
+unsigned char xdata UART1_ResiveBuff[UART1_RESIVE_BUFF_MAX];     	//串口1接收缓冲区
+unsigned int UART1_ResiveBuffIndex = 0;      						//串口1接收缓冲区当前位置
 
-bit UART1_SendFlag;                          //串口1发送完成标志
+unsigned char xdata UART1_SendBuffQueue[UART1_SEND_BUFF_MAX];     	//串口1接收队列
+unsigned int UART1_SendBuffQueue_IndexIn = 0;						//串口1接收队列队尾指针
+unsigned int UART1_SendBuffQueue_IndexOut = 0;      				//串口1接收队列队首指针
+
 bit UART1_ResiveFlag;                        //串口1接收完成标志
 bit UART1_ResiveStringEndFlag;               //串口1字符串接收全部完成标志
 bit UART1_ResiveStringFlag;                  //串口1字符串正在接收标志
-
+unsigned int UART1SendBuffer_GetStatu();
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART1_AddStringToSendBuffer
+*函数功能：将一个字符串加入串口1发送缓冲区（异步）
+*参数列表：
+*   *dat
+*       参数类型：unsigned char型指针
+*       参数描述：要发送的字符串的首地址
+*   len
+*       参数类型：unsigned int型数据
+*       参数描述：要发送的字符串的长度
+*返回值：一个bit型变量，1为失败。
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月2日
+*////////////////////////////////////////////////////////////////////////////////////
+bit UART1_AddStringToSendBuffer(unsigned char *dat, unsigned int len)
+{
+    unsigned int i = 0;	
+	if(UART1SendBuffer_GetStatu() == 0)
+	{
+		i = 1;
+		SBUF = dat[0];
+	}
+    for(; i < len; i++)
+    {
+        UART1_SendBuffQueue[UART1_SendBuffQueue_IndexIn] = dat[i];
+        UART1_SendBuffQueue_IndexIn++;
+        if(UART1_SendBuffQueue_IndexIn >= UART1_SEND_BUFF_MAX)
+            UART1_SendBuffQueue_IndexIn = 0;
+        if(UART1_SendBuffQueue_IndexIn == UART1_SendBuffQueue_IndexOut)
+            return 1;
+    }
+	return 0;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART1SendBuffer_Out
+*函数功能：从串口1发送缓冲区读出一个字符
+*参数列表：
+*   无
+*返回值：一个unsigned char型变量，读出的字符
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月2日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned char UART1SendBuffer_Out()
+{
+    unsigned char temp;
+	if(UART1SendBuffer_GetStatu() == 0)
+		return 0;
+	temp = UART1_SendBuffQueue[UART1_SendBuffQueue_IndexOut];
+	UART1_SendBuffQueue_IndexOut++;
+    if(UART1_SendBuffQueue_IndexOut >= UART1_SEND_BUFF_MAX)
+            UART1_SendBuffQueue_IndexOut = 0;
+	
+	return temp;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART1SendBuffer_GetStatu
+*函数功能：获取串口1发送缓冲区空闲空间
+*参数列表：
+*   无
+*返回值：一个unsigned int型变量，串口1发送缓冲区空闲空间
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月2日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned int UART1SendBuffer_GetStatu()
+{
+	if(UART1_SendBuffQueue_IndexIn > UART1_SendBuffQueue_IndexOut)
+		return UART1_SendBuffQueue_IndexIn - UART1_SendBuffQueue_IndexOut;
+	else if(UART1_SendBuffQueue_IndexIn < UART1_SendBuffQueue_IndexOut)
+		return UART1_SendBuffQueue_IndexIn + UART1_SEND_BUFF_MAX - UART1_SendBuffQueue_IndexOut;
+	else return 0;
+}
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART1_Conf
 *函数功能：配置STC8单片机串口1
@@ -95,8 +178,8 @@ WrongTimerChoosed:
 	else goto WrongTimerChoosed;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
-*函数名：UART1_SendString
-*函数功能：向串口1发送一个字符串
+*函数名：UART1_SendStringNow
+*函数功能：立即向串口1发送一个字符串（同步、无中断）
 *参数列表：
 *   *dat
 *       参数类型：unsigned char型指针
@@ -107,18 +190,20 @@ WrongTimerChoosed:
 *返回值：无
 *版本：1.0
 *作者：何相龙
-*日期：2014年12月9日
+*日期：2016年11月2日
 *////////////////////////////////////////////////////////////////////////////////////
-void UART1_SendString(unsigned char *dat, unsigned int len)
+void UART1_SendStringNow(unsigned char *dat, unsigned int len)
 {
+	ES = 0;
 	while(len)
 	{
 		len --;                     //每发送一位，长度减1
 		SBUF = *dat;                //发送一位数据
 		dat ++;                     //数据指针移向下一位
-		while(! UART1_SendFlag);    //等待串口发送完成标志
-		UART1_SendFlag = 0;         //清空串口发送完成标志
+		while(!TI);    				//等待串口发送完成标志
+		TI = 0;         			//清空串口发送完成标志
 	}
+	ES = 1;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART1_Read
@@ -138,13 +223,13 @@ void UART1_SendString(unsigned char *dat, unsigned int len)
 unsigned int UART1_Read(unsigned char *to, unsigned int len)
 {
 	unsigned int i;
-	if(UART1_BuffIndex < len)len = UART1_BuffIndex;   //获取串口1当前接收数据的位数
-	for(i = 0;i < len;i ++)                           //复制数据的目标数组
-		{
-			*to = UART1_Buff[i];
-			to ++;
-		}
-	UART1_BuffIndex = 0;                              //清空串口1接收缓冲区当前位置
+	if(UART1_ResiveBuffIndex < len)len = UART1_ResiveBuffIndex;   	//获取串口1当前接收数据的位数
+	for(i = 0;i < len;i ++)                           				//复制数据的目标数组
+	{
+		*to = UART1_ResiveBuff[i];
+		to ++;
+	}
+	UART1_ResiveBuffIndex = 0;                              		//清空串口1接收缓冲区当前位置
 	return len;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
@@ -160,14 +245,14 @@ unsigned int UART1_Read(unsigned char *to, unsigned int len)
 *////////////////////////////////////////////////////////////////////////////////////
 void UART1_Driver()
 {
-	unsigned char xdata dat[UART1_BUFF_MAX];       //定义数据暂存数组
-	unsigned int len;                        //数据的长度
-	if(UART1_ResiveStringEndFlag)            //如果串口1接收到一个完整的字符串
-		{
-			UART1_ResiveStringEndFlag = 0;   //清空接收完成标志
-			len = UART1_Read(dat, UART1_BUFF_MAX);  //将数据从原数组读出，并得到数据的长度
-			UART1_Action(dat, len);          //调用用户编写的UART_Action函数，将接收到的数据及数据长度作为参数
-		}
+	unsigned char xdata dat[UART1_RESIVE_BUFF_MAX];     //定义数据暂存数组
+	unsigned int len;                        			//数据的长度
+	if(UART1_ResiveStringEndFlag)            			//如果串口1接收到一个完整的字符串
+	{
+		UART1_ResiveStringEndFlag = 0;   				//清空接收完成标志
+		len = UART1_Read(dat, UART1_RESIVE_BUFF_MAX);  	//将数据从原数组读出，并得到数据的长度
+		UART1_Action(dat, len);          				//调用用户编写的UART_Action函数，将接收到的数据及数据长度作为参数
+	}
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART1_RxMonitor
@@ -183,21 +268,21 @@ void UART1_Driver()
 *////////////////////////////////////////////////////////////////////////////////////
 void UART1_RxMonitor(unsigned char ms)
 {
-	static unsigned char ms30 = 0;                   //30毫秒计时
-	static unsigned int UART1_BuffIndex_Backup;     //串口1数据暂存数组位置备份
-	if(! UART1_ResiveStringFlag)return ;             //如果当前没有在接受数据，直接退出函数
-    ms30 += ms;                                      //每一次定时器中断，表示时间过去了若干毫秒
-	if(UART1_BuffIndex_Backup != UART1_BuffIndex)    //如果串口1数据暂存数组位置备份不等于串口1接收缓冲区当前位置（接收到了新数据位）
+	static unsigned char ms30 = 0;                   	//30毫秒计时
+	static unsigned int UART1_BuffIndex_Backup;     	//串口1数据暂存数组位置备份
+	if(! UART1_ResiveStringFlag)return ;             	//如果当前没有在接受数据，直接退出函数
+    ms30 += ms;                                      	//每一次定时器中断，表示时间过去了若干毫秒
+	if(UART1_BuffIndex_Backup != UART1_ResiveBuffIndex) //如果串口1数据暂存数组位置备份不等于串口1接收缓冲区当前位置（接收到了新数据位）
 	{
-		UART1_BuffIndex_Backup = UART1_BuffIndex;    //记录串口1当前的接收缓冲区位置
-		ms30 = 0;                                    //复位30毫秒计时
+		UART1_BuffIndex_Backup = UART1_ResiveBuffIndex; //记录串口1当前的接收缓冲区位置
+		ms30 = 0;                                    	//复位30毫秒计时
 	}
-	if(ms30 > 30)                                    //30毫秒到了
-		{
-			ms30 = 0;                                //复位30毫秒计时
-			UART1_ResiveStringEndFlag = 1;           //设置串口1字符串接收全部完成标志
-			UART1_ResiveStringFlag = 0;              //清空串口1字符串正在接收标志
-		}
+	if(ms30 > 30)                                    	//30毫秒到了
+	{
+		ms30 = 0;                                		//复位30毫秒计时
+		UART1_ResiveStringEndFlag = 1;           		//设置串口1字符串接收全部完成标志
+		UART1_ResiveStringFlag = 0;              		//清空串口1字符串正在接收标志
+	}
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART1_IOPortSwitch
@@ -233,17 +318,18 @@ void UART1_IOPortSwitch(unsigned char choose)
 *////////////////////////////////////////////////////////////////////////////////////
 void interrupt_UART1() interrupt 4
 {
-	if(TI)                                    //如果串口1发送完成
+	if(TI)                                    				//如果串口1发送完成
 	{
-		TI = 0;                               //清空系统标志位
-		UART1_SendFlag = 1;                   //设置串口1发送完成标志
+		TI = 0;                               				//清空系统标志位
+		if(UART1SendBuffer_GetStatu() > 0)
+			SBUF = UART1SendBuffer_Out();
 	}
-	if(RI)                                    //如果串口1接收完成
+	else if(RI)                                    			//如果串口1接收完成
 	{
-		RI = 0;                               //清空系统标志位
-		UART1_ResiveFlag = 1;                 //设置串口1接收完成标志
-		UART1_Buff[UART1_BuffIndex] = SBUF;   //将接收到的数据放到暂存数组
-		UART1_ResiveStringFlag = 1;           //设置串口1字符串正在接收标志
-		UART1_BuffIndex ++;                   //串口1接收缓冲区当前位置右移
+		RI = 0;                               				//清空系统标志位
+		UART1_ResiveFlag = 1;                 				//设置串口1接收完成标志
+		UART1_ResiveBuff[UART1_ResiveBuffIndex] = SBUF;   	//将接收到的数据放到暂存数组
+		UART1_ResiveStringFlag = 1;           				//设置串口1字符串正在接收标志
+		UART1_ResiveBuffIndex ++;                   		//串口1接收缓冲区当前位置右移
 	}
 }

@@ -24,15 +24,21 @@
 	GitHub：hxl9654
 	功能描述：STC8单片机串口2字符串通信模块
 	备注：尽量使用封装好的函数进行操作，而不要使用直接对串口进行操作。
-        使用该模块，请在config.h中定义UART_BUFF_MAX常量为数据缓存数组最大长度。
-            如 #define UART2_BUFF_MAX 64
+        使用该模块，请在config.h中定UART2_RESIVE_BUFF_MAX常量为数据接收缓存数组最大长度。
+            如 #define UART2_RESIVE_BUFF_MAX 64
+		使用该模块，请在config.h中定UART2_SEND_BUFF_MAX常量为数据发送缓存数组最大长度。
+            如 #define UART2_SEND_BUFF_MAX 64
         使用该模块，请在config.h中定义XTAL常量为晶振频率（单位：兆赫兹）。
             如 #define XTAL 11.059200
 *////////////////////////////////////////////////////////////////////////////////////////
 #include<STC8.h>
 
-#ifndef UART2_BUFF_MAX
-#define UART2_BUFF_MAX 64
+#ifndef UART2_RESIVE_BUFF_MAX
+#define UART2_RESIVE_BUFF_MAX 64
+#endif // 如果没有定义BUFFMAX，则默认为64
+
+#ifndef UART2_SEND_BUFF_MAX
+#define UART2_SEND_BUFF_MAX 64
 #endif // 如果没有定义BUFFMAX，则默认为64
 
 #ifndef XTAL
@@ -42,14 +48,91 @@
 extern void UART2_Action(unsigned char *dat, unsigned int len);
 //此函数须另行编写：当串口完成一个字符串结束后会自动调用
 
-unsigned char xdata UART2_Buff[UART2_BUFF_MAX];     //串口2接收缓冲区
-unsigned int UART2_BuffIndex = 0;           //串口2接收缓冲区当前位置
+unsigned char xdata UART2_ResiveBuff[UART2_RESIVE_BUFF_MAX];     	//串口2接收缓冲区
+unsigned int UART2_ResiveBuffIndex = 0;      						//串口2接收缓冲区当前位置
 
-bit UART2_SendFlag;                          //串口2发送完成标志
+unsigned char xdata UART2_SendBuffQueue[UART2_SEND_BUFF_MAX];     	//串口2接收队列
+unsigned int UART2_SendBuffQueue_IndexIn = 0;						//串口2接收队列队尾指针
+unsigned int UART2_SendBuffQueue_IndexOut = 0;      				//串口2接收队列队首指针
+
 bit UART2_ResiveFlag;                        //串口2接收完成标志
 bit UART2_ResiveStringEndFlag;               //串口2字符串接收全部完成标志
 bit UART2_ResiveStringFlag;                  //串口2字符串正在接收标志
-
+unsigned int UART2SendBuffer_GetStatu();
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART2_AddStringToSendBuffer
+*函数功能：将一个字符串加入串口2发送缓冲区（异步）
+*参数列表：
+*   *dat
+*       参数类型：unsigned char型指针
+*       参数描述：要发送的字符串的首地址
+*   len
+*       参数类型：unsigned int型数据
+*       参数描述：要发送的字符串的长度
+*返回值：一个bit型变量，1为失败。
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月2日
+*////////////////////////////////////////////////////////////////////////////////////
+bit UART2_AddStringToSendBuffer(unsigned char *dat, unsigned int len)
+{
+    unsigned int i = 0;	
+	if(UART2SendBuffer_GetStatu() == 0)
+	{
+		i = 1;
+		S2BUF = dat[0];
+	}
+    for(; i < len; i++)
+    {
+        UART2_SendBuffQueue[UART2_SendBuffQueue_IndexIn] = dat[i];
+        UART2_SendBuffQueue_IndexIn++;
+        if(UART2_SendBuffQueue_IndexIn >= UART2_SEND_BUFF_MAX)
+            UART2_SendBuffQueue_IndexIn = 0;
+        if(UART2_SendBuffQueue_IndexIn == UART2_SendBuffQueue_IndexOut)
+            return 1;
+    }
+	return 0;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART2SendBuffer_Out
+*函数功能：从串口2发送缓冲区读出一个字符
+*参数列表：
+*   无
+*返回值：一个unsigned char型变量，读出的字符
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月2日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned char UART2SendBuffer_Out()
+{
+    unsigned char temp;
+	if(UART2SendBuffer_GetStatu() == 0)
+		return 0;
+	temp = UART2_SendBuffQueue[UART2_SendBuffQueue_IndexOut];
+	UART2_SendBuffQueue_IndexOut++;
+    if(UART2_SendBuffQueue_IndexOut >= UART2_SEND_BUFF_MAX)
+            UART2_SendBuffQueue_IndexOut = 0;
+	
+	return temp;
+}
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART2SendBuffer_GetStatu
+*函数功能：获取串口2发送缓冲区空闲空间
+*参数列表：
+*   无
+*返回值：一个unsigned int型变量，串口2发送缓冲区空闲空间
+*版本：1.0
+*作者：何相龙
+*日期：2016年11月2日
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned int UART2SendBuffer_GetStatu()
+{
+	if(UART2_SendBuffQueue_IndexIn > UART2_SendBuffQueue_IndexOut)
+		return UART2_SendBuffQueue_IndexIn - UART2_SendBuffQueue_IndexOut;
+	else if(UART2_SendBuffQueue_IndexIn < UART2_SendBuffQueue_IndexOut)
+		return UART2_SendBuffQueue_IndexIn + UART2_SEND_BUFF_MAX - UART2_SendBuffQueue_IndexOut;
+	else return 0;
+}
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART2_Conf
 *函数功能：配置STC8单片机串口2
@@ -82,8 +165,8 @@ void UART2_Conf(unsigned long baud, unsigned char timer)
 	AUXR |= 0x10;		//启动定时器2
 }
 /*///////////////////////////////////////////////////////////////////////////////////
-*函数名：UART2_SendString
-*函数功能：向串口2发送一个字符串
+*函数名：UART2_SendStringNow
+*函数功能：立即向串口2发送一个字符串（同步、无中断）
 *参数列表：
 *   *dat
 *       参数类型：unsigned char型指针
@@ -94,18 +177,20 @@ void UART2_Conf(unsigned long baud, unsigned char timer)
 *返回值：无
 *版本：1.0
 *作者：何相龙
-*日期：2014年12月9日
+*日期：2016年11月2日
 *////////////////////////////////////////////////////////////////////////////////////
-void UART2_SendString(unsigned char *dat, unsigned int len)
+void UART2_SendStringNow(unsigned char *dat, unsigned int len)
 {
+	IE2 &= 0xFE;
 	while(len)
 	{
 		len --;                     //每发送一位，长度减1
 		S2BUF = *dat;               //发送一位数据
 		dat ++;                     //数据指针移向下一位
-		while(! UART2_SendFlag);    //等待串口发送完成标志
-		UART2_SendFlag = 0;         //清空串口发送完成标志
+		while(!(S2CON & 0x02));    	//等待串口发送完成标志
+		S2CON &= 0xFD;         		//清空串口发送完成标志
 	}
+	IE2 |= 0x01;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART2_Read
@@ -125,13 +210,13 @@ void UART2_SendString(unsigned char *dat, unsigned int len)
 unsigned int UART2_Read(unsigned char *to, unsigned int len)
 {
 	unsigned int i;
-	if(UART2_BuffIndex < len)len = UART2_BuffIndex;   //获取串口2当前接收数据的位数
-	for(i = 0;i < len;i ++)                           //复制数据的目标数组
-		{
-			*to = UART2_Buff[i];
-			to ++;
-		}
-	UART2_BuffIndex = 0;                              //清空串口2接收缓冲区当前位置
+	if(UART2_ResiveBuffIndex < len)len = UART2_ResiveBuffIndex;   	//获取串口2当前接收数据的位数
+	for(i = 0;i < len;i ++)                           				//复制数据的目标数组
+	{
+		*to = UART2_ResiveBuff[i];
+		to ++;
+	}
+	UART2_ResiveBuffIndex = 0;                              		//清空串口2接收缓冲区当前位置
 	return len;
 }
 /*///////////////////////////////////////////////////////////////////////////////////
@@ -147,14 +232,14 @@ unsigned int UART2_Read(unsigned char *to, unsigned int len)
 *////////////////////////////////////////////////////////////////////////////////////
 void UART2_Driver()
 {
-	unsigned char xdata dat[UART2_BUFF_MAX];       //定义数据暂存数组
-	unsigned int len;                       //数据的长度
-	if(UART2_ResiveStringEndFlag)            //如果串口2接收到一个完整的字符串
-		{
-			UART2_ResiveStringEndFlag = 0;   //清空接收完成标志
-			len = UART2_Read(dat, UART2_BUFF_MAX);  //将数据从原数组读出，并得到数据的长度
-			UART2_Action(dat, len);          //调用用户编写的UART_Action函数，将接收到的数据及数据长度作为参数
-		}
+	unsigned char xdata dat[UART2_RESIVE_BUFF_MAX];     //定义数据暂存数组
+	unsigned int len;                        			//数据的长度
+	if(UART2_ResiveStringEndFlag)            			//如果串口2接收到一个完整的字符串
+	{
+		UART2_ResiveStringEndFlag = 0;   				//清空接收完成标志
+		len = UART2_Read(dat, UART2_RESIVE_BUFF_MAX);  	//将数据从原数组读出，并得到数据的长度
+		UART2_Action(dat, len);          				//调用用户编写的UART_Action函数，将接收到的数据及数据长度作为参数
+	}
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART2_RxMonitor
@@ -170,21 +255,21 @@ void UART2_Driver()
 *////////////////////////////////////////////////////////////////////////////////////
 void UART2_RxMonitor(unsigned char ms)
 {
-	static unsigned char ms30 = 0;                   //30毫秒计时
-	static unsigned int UART2_BuffIndex_Backup;     //串口2数据暂存数组位置备份
-	if(! UART2_ResiveStringFlag)return ;             //如果当前没有在接受数据，直接退出函数
-    ms30 += ms;                                      //每一次定时器中断，表示时间过去了若干毫秒
-	if(UART2_BuffIndex_Backup != UART2_BuffIndex)    //如果串口2数据暂存数组位置备份不等于串口2接收缓冲区当前位置（接收到了新数据位）
+	static unsigned char ms30 = 0;                   	//30毫秒计时
+	static unsigned int UART2_BuffIndex_Backup;     	//串口2数据暂存数组位置备份
+	if(! UART2_ResiveStringFlag)return ;             	//如果当前没有在接受数据，直接退出函数
+    ms30 += ms;                                      	//每一次定时器中断，表示时间过去了若干毫秒
+	if(UART2_BuffIndex_Backup != UART2_ResiveBuffIndex) //如果串口2数据暂存数组位置备份不等于串口2接收缓冲区当前位置（接收到了新数据位）
 	{
-		UART2_BuffIndex_Backup = UART2_BuffIndex;    //记录串口2当前的接收缓冲区位置
-		ms30 = 0;                                    //复位30毫秒计时
+		UART2_BuffIndex_Backup = UART2_ResiveBuffIndex; //记录串口2当前的接收缓冲区位置
+		ms30 = 0;                                    	//复位30毫秒计时
 	}
-	if(ms30 > 30)                                    //30毫秒到了
-		{
-			ms30 = 0;                                //复位30毫秒计时
-			UART2_ResiveStringEndFlag = 1;           //设置串口2字符串接收全部完成标志
-			UART2_ResiveStringFlag = 0;              //清空串口2字符串正在接收标志
-		}
+	if(ms30 > 30)                                    	//30毫秒到了
+	{
+		ms30 = 0;                                		//复位30毫秒计时
+		UART2_ResiveStringEndFlag = 1;           		//设置串口2字符串接收全部完成标志
+		UART2_ResiveStringFlag = 0;              		//清空串口2字符串正在接收标志
+	}
 }
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART2_IOPortSwitch
@@ -218,17 +303,18 @@ void UART2_IOPortSwitch(unsigned char choose)
 *////////////////////////////////////////////////////////////////////////////////////
 void interrupt_UART2() interrupt 8
 {
-	if(S2CON & 0x02)                          //如果串口2发送完成
+	if(S2CON & 0x02)                          				//如果串口2发送完成
 	{
-		S2CON &= 0xFD;                        //清空系统标志位
-		UART2_SendFlag = 1;                   //设置串口2发送完成标志
+		S2CON &= 0xFD;                        				//清空系统标志位
+		if(UART2SendBuffer_GetStatu() > 0)
+			S2BUF = UART2SendBuffer_Out();
 	}
-	if(S2CON & 0x01)                          //如果串口2接收完成
+	else if(S2CON & 0x01)                          			//如果串口2接收完成
 	{
-		S2CON &= 0xFE;                        //清空系统标志位
-		UART2_ResiveFlag = 1;                 //设置串口2接收完成标志
-		UART2_Buff[UART2_BuffIndex] = S2BUF;  //将接收到的数据放到暂存数组
-		UART2_ResiveStringFlag = 1;           //设置串口2字符串正在接收标志
-		UART2_BuffIndex ++;                   //串口2接收缓冲区当前位置右移
+		S2CON &= 0xFE;                        				//清空系统标志位
+		UART2_ResiveFlag = 1;                 				//设置串口2接收完成标志
+		UART2_ResiveBuff[UART2_ResiveBuffIndex] = S2BUF;   	//将接收到的数据放到暂存数组
+		UART2_ResiveStringFlag = 1;           				//设置串口2字符串正在接收标志
+		UART2_ResiveBuffIndex ++;                   		//串口2接收缓冲区当前位置右移
 	}
 }

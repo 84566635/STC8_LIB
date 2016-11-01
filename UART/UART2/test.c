@@ -39,8 +39,9 @@ int main()
 }
 void UART2_Action(unsigned char *dat,unsigned char len)
 {
-	UART2_SendString("\r\nResived:",10);
-	UART2_SendString(dat, len);
+	UART2_SendStringNow("\r\nResived:",10);
+	UART2_AddStringToSendBuffer(dat, len);
+	//UART2_SendStringNow(dat, len);
 }
 void Timer0Init(void)		//1∫¡√Î@11.0592MHz
 {

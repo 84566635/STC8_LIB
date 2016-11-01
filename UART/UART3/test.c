@@ -40,8 +40,9 @@ int main()
 }
 void UART3_Action(unsigned char *dat,unsigned char len)
 {
-	UART3_SendString("\r\nResived:",10);
-	UART3_SendString(dat, len);
+	UART3_SendStringNow("\r\nResived:",10);
+	UART3_AddStringToSendBuffer(dat, len);
+	//UART2_SendStringNow(dat, len);
 }
 void Timer0Init(void)		//1∫¡√Î@11.0592MHz
 {

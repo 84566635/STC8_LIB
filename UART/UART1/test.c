@@ -38,10 +38,11 @@ int main()
 		UART1_Driver();
 	}
 }
-void UART1_Action(unsigned char *dat,unsigned char len)
+void UART1_Action(unsigned char *dat, unsigned char len)
 {
-	UART1_SendString("\r\nResived:",10);
-	UART1_SendString(dat, len);
+	UART1_SendStringNow("\r\nResived:",10);
+	UART1_AddStringToSendBuffer(dat, len);
+	//UART1_SendStringNow(dat, len);
 }
 void Timer0Init(void)		//1∫¡√Î@11.0592MHz
 {

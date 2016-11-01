@@ -40,8 +40,9 @@ int main()
 }
 void UART4_Action(unsigned char *dat,unsigned char len)
 {
-	UART4_SendString("\r\nResived:",10);
-	UART4_SendString(dat, len);
+	UART4_SendStringNow("\r\nResived:",10);
+	UART4_AddStringToSendBuffer(dat, len);
+	//UART4_SendStringNow(dat, len);
 }
 void Timer0Init(void)		//1∫¡√Î@11.0592MHz
 {

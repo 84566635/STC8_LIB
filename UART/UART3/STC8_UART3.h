@@ -24,8 +24,11 @@
 	GitHub：hxl9654
 	功能描述：STC8单片机串口3字符串通信模块
 	备注：尽量使用封装好的函数进行操作，而不要使用直接对串口进行操作。
-        使用该模块，请在config.h中定义UART_BUFF_MAX常量为数据缓存数组最大长度。
-            如 #define UART3_BUFF_MAX 64
+	备注：尽量使用封装好的函数进行操作，而不要使用直接对串口进行操作。
+        使用该模块，请在config.h中定UART3_RESIVE_BUFF_MAX常量为数据接收缓存数组最大长度。
+            如 #define UART3_RESIVE_BUFF_MAX 64
+		使用该模块，请在config.h中定UART3_SEND_BUFF_MAX常量为数据发送缓存数组最大长度。
+            如 #define UART3_SEND_BUFF_MAX 64
         使用该模块，请在config.h中定义XTAL常量为晶振频率（单位：兆赫兹）。
             如 #define XTAL 11.059200
 *////////////////////////////////////////////////////////////////////////////////////////
@@ -45,8 +48,8 @@
 *////////////////////////////////////////////////////////////////////////////////////
 void UART3_Conf(unsigned long baud, unsigned char timer);
 /*///////////////////////////////////////////////////////////////////////////////////
-*函数名：UART3_SendString
-*函数功能：向串口3发送一个字符串
+*函数名：UART3_SendStringNow
+*函数功能：立即向串口3发送一个字符串（同步、无中断）
 *参数列表：
 *   *dat
 *       参数类型：unsigned char型指针
@@ -55,11 +58,11 @@ void UART3_Conf(unsigned long baud, unsigned char timer);
 *       参数类型：unsigned int型数据
 *       参数描述：要发送的字符串的长度
 *////////////////////////////////////////////////////////////////////////////////////
-void UART3_SendString(unsigned char *dat, unsigned int len);
+void UART3_SendStringNow(unsigned char *dat, unsigned int len);
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART3_Driver
 *函数功能：串口3通信监控函数，在主循环中调用。
-*         如果接收到字符串，会自动调用另行编写的UART3_Action(unsigned char *dat,unsigned int len)
+*         如果接收到字符串，会自动调用另行编写的UART3_Action(unsigned char *dat, unsigned int len)
 *////////////////////////////////////////////////////////////////////////////////////
 void UART3_Driver();
 /*///////////////////////////////////////////////////////////////////////////////////
@@ -83,4 +86,23 @@ void UART3_RxMonitor(unsigned char ms);
 					1		P5.0		P5.1
 *////////////////////////////////////////////////////////////////////////////////////
 void UART3_IOPortSwitch(unsigned char choose);
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART3_AddStringToSendBuffer
+*函数功能：将一个字符串加入串口3发送缓冲区（异步）
+*参数列表：
+*   *dat
+*       参数类型：unsigned char型指针
+*       参数描述：要发送的字符串的首地址
+*   len
+*       参数类型：unsigned int型数据
+*       参数描述：要发送的字符串的长度
+*返回值：一个bit型变量，1为失败。
+*////////////////////////////////////////////////////////////////////////////////////
+bit UART3_AddStringToSendBuffer(unsigned char *dat, unsigned int len);
+/*///////////////////////////////////////////////////////////////////////////////////
+*函数名：UART3SendBuffer_GetStatu
+*函数功能：获取串口3发送缓冲区空闲空间
+*返回值：一个unsigned int型变量，串口3发送缓冲区空闲空间
+*////////////////////////////////////////////////////////////////////////////////////
+unsigned int UART3SendBuffer_GetStatu();
 #endif
