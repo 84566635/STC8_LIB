@@ -30,7 +30,6 @@
             如 #define XTAL 11.059200
 *////////////////////////////////////////////////////////////////////////////////////////
 #include<STC8.h>
-#include<STC8_UART1.h>
 
 #ifndef UART1_BUFF_MAX
 #define UART1_BUFF_MAX 64
@@ -40,11 +39,11 @@
 #define XTAL 11.059200
 #endif //如果没有定义晶振频率，则默认为11.0592M晶振
 
-extern void UART1_Action(unsigned char *dat, unsigned char len);
+extern void UART1_Action(unsigned char *dat, unsigned int len);
 //此函数须另行编写：当串口完成一个字符串结束后会自动调用
 
 unsigned char xdata UART1_Buff[UART1_BUFF_MAX];     //串口1接收缓冲区
-unsigned char UART1_BuffIndex = 0;           //串口1接收缓冲区当前位置
+unsigned int UART1_BuffIndex = 0;            //串口1接收缓冲区当前位置
 
 bit UART1_SendFlag;                          //串口1发送完成标志
 bit UART1_ResiveFlag;                        //串口1接收完成标志
@@ -103,14 +102,14 @@ WrongTimerChoosed:
 *       参数类型：unsigned char型指针
 *       参数描述：要发送的字符串的首地址
 *   len
-*       参数类型：unsigned char型数据
+*       参数类型：unsigned int型数据
 *       参数描述：要发送的字符串的长度
 *返回值：无
 *版本：1.0
 *作者：何相龙
 *日期：2014年12月9日
 *////////////////////////////////////////////////////////////////////////////////////
-void UART1_SendString(unsigned char *dat, unsigned char len)
+void UART1_SendString(unsigned char *dat, unsigned int len)
 {
 	while(len)
 	{
@@ -129,16 +128,16 @@ void UART1_SendString(unsigned char *dat, unsigned char len)
 *       参数类型：unsigned char型指针
 *       参数描述：存储接收到的字符的位置
 *   len
-*       参数类型：unsigned char型数据
+*       参数类型：unsigned int型数据
 *       参数描述：要读取的字符串的长度
-*返回值：unsigned char型数据，字符串的实际长度
+*返回值：unsigned int型数据，字符串的实际长度
 *版本：1.0
 *作者：何相龙
 *日期：2014年12月9日
 *////////////////////////////////////////////////////////////////////////////////////
-unsigned char UART1_Read(unsigned char *to, unsigned char len)
+unsigned int UART1_Read(unsigned char *to, unsigned int len)
 {
-	unsigned char i;
+	unsigned int i;
 	if(UART1_BuffIndex < len)len = UART1_BuffIndex;   //获取串口1当前接收数据的位数
 	for(i = 0;i < len;i ++)                           //复制数据的目标数组
 		{
@@ -151,7 +150,7 @@ unsigned char UART1_Read(unsigned char *to, unsigned char len)
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART1_Driver
 *函数功能：串口1通信监控函数，在主循环中调用。
-*         如果接收到字符串，会自动调用另行编写的UART1_Action(unsigned char *dat,unsigned char len)
+*         如果接收到字符串，会自动调用另行编写的UART1_Action(unsigned char *dat,unsigned int len)
 *参数列表：
 *   无
 *返回值：无
@@ -162,7 +161,7 @@ unsigned char UART1_Read(unsigned char *to, unsigned char len)
 void UART1_Driver()
 {
 	unsigned char xdata dat[UART1_BUFF_MAX];       //定义数据暂存数组
-	unsigned char len;                       //数据的长度
+	unsigned int len;                        //数据的长度
 	if(UART1_ResiveStringEndFlag)            //如果串口1接收到一个完整的字符串
 		{
 			UART1_ResiveStringEndFlag = 0;   //清空接收完成标志
@@ -185,7 +184,7 @@ void UART1_Driver()
 void UART1_RxMonitor(unsigned char ms)
 {
 	static unsigned char ms30 = 0;                   //30毫秒计时
-	static unsigned char UART1_BuffIndex_Backup;     //串口1数据暂存数组位置备份
+	static unsigned int UART1_BuffIndex_Backup;     //串口1数据暂存数组位置备份
 	if(! UART1_ResiveStringFlag)return ;             //如果当前没有在接受数据，直接退出函数
     ms30 += ms;                                      //每一次定时器中断，表示时间过去了若干毫秒
 	if(UART1_BuffIndex_Backup != UART1_BuffIndex)    //如果串口1数据暂存数组位置备份不等于串口1接收缓冲区当前位置（接收到了新数据位）

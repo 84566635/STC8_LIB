@@ -52,14 +52,14 @@ void UART4_Conf(unsigned long baud, unsigned char timer);
 *       参数类型：unsigned char型指针
 *       参数描述：要发送的字符串的首地址
 *   len
-*       参数类型：unsigned char型数据
+*       参数类型：unsigned int型数据
 *       参数描述：要发送的字符串的长度
 *////////////////////////////////////////////////////////////////////////////////////
-void UART4_SendString(unsigned char *dat, unsigned char len);
+void UART4_SendString(unsigned char *dat, unsigned int len);
 /*///////////////////////////////////////////////////////////////////////////////////
 *函数名：UART4_Driver
 *函数功能：串口4通信监控函数，在主循环中调用。
-*         如果接收到字符串，会自动调用另行编写的UART4_Action(unsigned char *dat,unsigned char len)
+*         如果接收到字符串，会自动调用另行编写的UART4_Action(unsigned char *dat,unsigned int len)
 *////////////////////////////////////////////////////////////////////////////////////
 void UART4_Driver();
 /*///////////////////////////////////////////////////////////////////////////////////
