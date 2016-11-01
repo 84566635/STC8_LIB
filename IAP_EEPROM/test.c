@@ -42,12 +42,12 @@ void EEPROMTest_SingleByte()
 	
 	for(i = 0; i < 512; i++)
 		temp1[i] = EEPROM_ReadByte(0x1000 + i);	
-	UART1_SendString(temp1, 512);
+	UART1_SendStringNow(temp1, 512);
 	
 	EEPROM_EreasePage(0x1000);
 	for(i = 0; i < 512; i++)
 		temp1[i] = EEPROM_ReadByte(0x1000 + i);	
-	UART1_SendString(temp1, 512);
+	UART1_SendStringNow(temp1, 512);
 }
 void EEPROMTest_Bytes()
 {
@@ -56,7 +56,7 @@ void EEPROMTest_Bytes()
 		temp1[i] = i + 233;
 	EEPROM_WriteBytes(0x0010, temp1, 300);
 	EEPROM_ReadBytes(0x0010, temp2, 300);
-	UART1_SendString(temp2, 300);
+	UART1_SendStringNow(temp2, 300);
 	EEPROM_EreasePage(0x0010);
 }
 void main()
@@ -76,7 +76,7 @@ void UART1_Action(unsigned char *dat,unsigned int len)
 {
 	EEPROM_WriteBytes(0x2000, dat, len);
 	EEPROM_ReadBytes(0x2000, temp1, len);
-	UART1_SendString(temp1, len);
+	UART1_SendStringNow(temp1, len);
 	EEPROM_EreasePage(0x2000);
 }
 void Timer0Init(void)		//1ºÁÃë@11.0592MHz
